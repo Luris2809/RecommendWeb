@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Recommend web</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='sanitize.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="header">
+        <h1>おすすめ商品登録</h1>
+        <button id="add-button"><i class="fas fa-plus"></i> 追加</button>
+    </div>
+    <div class="container">
+
+        <div id="add-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <h2>新しいおすすめ商品を登録</h2>
+                <form method="POST" action="/submit" class="modal-form" enctype="multipart/form-data">
+                    <div>
+                        <label for="item_name">商品名:</label>
+                        <input type="text" id="item_name" name="item_name"><br><br>
+                    </div>
+                    <div>
+                        <label for="category">カテゴリ:</label>
+                        <input type="text" id="category" name="category"><br><br>
+                    </div>
+                    <div>
+                        <label for="file">画像/動画:</label>
+                        <input type="file" id="file" name="file"><br><br>
+                    </div>
+                    <button type="submit">登録</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="edit-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <h2>商品の編集</h2>
+                <form method="POST" action="/edit_submit" class="modal-form" enctype="multipart/form-data">
+                    <div>
+                        <label for="edit_item_name">商品名:</label>
+                        <input type="text" id="edit_item_name" name="edit_item_name"><br><br>
+                    </div>
+                    <div>
+                        <label for="edit_category">カテゴリ:</label>
+                        <input type="text" id="edit_category" name="edit_category"><br><br>
+                    </div>
+                    <div>
+                        <label for="edit_file">画像/動画 (変更する場合のみ選択):</label>
+                        <input type="file" id="edit_file" name="edit_file"><br><br>
+                    </div>
+                    <input type="hidden" id="original_item_name" name="original_item_name">
+                    <input type="hidden" id="original_category" name="original_category">
+                    <button type="submit">保存</button>
+                </form>
+            </div>
+        </div>
+
+        {% if error %}
+        <p class="error">{{ error }}</p>
+        {% endif %}
+
+        {% if message %}
+        <p class="message">{{ message }}</p>
+        {% endif %}
+
+        <h2>登録済みのおすすめ</h2>
+        {% if recommendations %}
+        <div class="card-grid">
+            {% for item in recommendations %}
+            <div class="card">
+                <div class="card-image">
+                    {% if 'file_path' in item %}
+                        {% if item.file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) %}
+                            <img src="{{ url_for('static', filename=item.file_path.replace('static/', '')) }}" alt="{{ item.name }}">
+                        {% elif item.file_path.lower().endswith(('.mp4', '.webm')) %}
+                            <video src="{{ url_for('static', filename=item.file_path.replace('static/', '')) }}" controls></video>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="card-content">
+                    <h3>{{ item.name }}</h3>
+                    <p>カテゴリ: {{ item.category }}</p>
+                    <div class="card-actions">
+                        <button onclick="window.location.href='/like/{{ item.name }}/{{ item.category }}'"><i class="fas fa-heart"></i> いいね！</button>
+                        <button class="edit-button" data-item-name="{{ item.name }}" data-item-category="{{ item.category }}">
+                            <i class="fas fa-edit"></i> 編集
+                        </button>
+                        <div class="likes-info">
+                            <span><i class="fas fa-thumbs-up"></i> {{ item.like_count }}</span>
+                            <span><i class="fas fa-history"></i> 30日: {{ item.get('likes_last_30_days', 0) }}</span>
+                            <span><i class="fas fa-chart-line"></i> 1年: {{ item.get('likes_last_year', 0) }}</span>
+                            <span><i class="fas fa-infinity"></i> 全期間: {{ item.get('all_time_likes', 0) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p>まだ登録された商品はありません。</p>
+        {% endif %}
+
+        <hr>
+        <div class="debug-buttons">
+            <button onclick="window.location.href='/reset_likes_yearly'">いいね！数を年間リセット</button>
+            <button onclick="window.location.href='/debug'">登録データ確認</button>
+        </div>
+    </div>
+
+    <script>
+        // Get the modal
+        var modal = document.getElementById("add-modal");
+        var addButton = document.getElementById("add-button");
+        var closeButton = document.getElementsByClassName("close-button")[0];
+
+        addButton.onclick = function() {
+            modal.style.display = "block";
+        }
+
+        closeButton.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // ここに追加
+        // Get the edit modal
+        var editModal = document.getElementById("edit-modal");
+        var editButtons = document.querySelectorAll(".edit-button");
+        var closeEditButton = editModal.querySelector(".close-button");
+        var editItemNameInput = document.getElementById("edit_item_name");
+        var editCategoryInput = document.getElementById("edit_category");
+        var originalItemNameInput = document.getElementById("original_item_name");
+        var originalCategoryInput = document.getElementById("original_category");
+
+        editButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                var itemName = this.dataset.itemName;
+                var category = this.dataset.itemCategory;
+                editItemNameInput.value = itemName;
+                editCategoryInput.value = category;
+                originalItemNameInput.value = itemName;
+                originalCategoryInput.value = category;
+                editModal.style.display = "block";
+            });
+        });
+
+        closeEditButton.onclick = function() {
+            editModal.style.display = "none";
+        }
+
+        window.addEventListener('click', function(event) {
+            if (event.target == editModal) {
+                editModal.style.display = "none";
+            }
+        });
+    </script>
+</body>
+</html>

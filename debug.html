@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>デバッグ情報</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='sanitize.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>登録データ</h1>
+        <pre>{{ recommendations | tojson(indent=4) }}</pre>
+        <p><a href="/">戻る</a></p>
+    </div>
+</body>
+</html>
